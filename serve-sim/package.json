@@ -2,6 +2,19 @@
   "name": "bb-plugin-serve-sim",
   "version": "0.2.0",
   "type": "module",
+  "author": {
+    "name": "Navipro70",
+    "url": "https://github.com/Navipro70"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Navipro70/bb-plugins.git",
+    "directory": "serve-sim"
+  },
+  "bugs": {
+    "url": "https://github.com/Navipro70/bb-plugins/issues"
+  },
+  "homepage": "https://github.com/Navipro70/bb-plugins/tree/main/serve-sim#readme",
   "engines": {
     "bb": ">=0.48",
     "bbPluginSdk": ">=0.6.104",
@@ -18,6 +31,11 @@
     "skills": [
       "skills"
     ]
+  },
+  "scripts": {
+    "build": "bb plugin build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.3.0",
@@ -53,24 +71,11 @@
   },
   "description": "Stream the iOS Simulator into the BB side panel with serve-sim.",
   "license": "Apache-2.0",
-  "author": {
-    "name": "Navipro70",
-    "url": "https://github.com/Navipro70"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Navipro70/bb-plugin-serve-sim.git"
-  },
   "keywords": [
     "bb-plugin",
     "ios",
     "simulator",
     "serve-sim",
     "xcode"
-  ],
-  "scripts": {
-    "build": "bb plugin build",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
-  }
+  ]
 }

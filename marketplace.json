@@ -3,12 +3,22 @@
   "schemaVersion": 2,
   "name": "navipro-plugins",
   "displayName": "Navipro Plugins",
-  "description": "A family of bb plugins by Navipro70.",
+  "description": "BB plugins by Navipro70.",
   "categories": [
     {
       "id": "thread-content",
       "displayName": "Thread Content",
       "description": "Change what people see or do inside an open thread."
+    },
+    {
+      "id": "navigation",
+      "displayName": "Navigation",
+      "description": "Change how you move between threads, app pages, and servers."
+    },
+    {
+      "id": "token-usage-and-limits",
+      "displayName": "Token Usage & Limits",
+      "description": "Understand or control token, context-window, and provider-quota use."
     }
   ],
   "collections": [
@@ -16,25 +26,24 @@
       "id": "navipro-plugins",
       "displayName": "Navipro Plugins",
       "pluginIds": [
-        "sim-annotate"
+        "serve-sim",
+        "project-rail",
+        "project-accounts"
       ]
     }
   ],
   "plugins": [
     {
-      "id": "sim-annotate",
-      "displayName": "Annotate Simulator",
-      "description": "Notes on elements of the iOS Simulator's screen: click an element of your Expo or React Native app, write a note, and send it to your agent as a pill with its testID and a screenshot.",
-      "icon": {
-        "url": "./sim-annotate/assets/icon.svg"
-      },
+      "id": "serve-sim",
+      "displayName": "Simulator (serve-sim) [Early access]",
+      "description": "Stream a live, interactive iOS Simulator into the thread side panel with serve-sim.",
+      "icon": "Smartphone",
       "tags": [
         "ios",
         "simulator",
         "expo",
         "react-native",
-        "annotations",
-        "screenshots"
+        "annotations"
       ],
       "author": {
         "name": "Navipro70",
@@ -43,12 +52,65 @@
       },
       "category": "thread-content",
       "screenshots": [],
-      "overview": "Point at the part of your app you mean. Click an element of the iOS\nSimulator's screen, write a note, and your agent gets the note with the\nelement's `testID` and a screenshot.\n\n## Notes on the simulator\n\nOpen **Annotate Simulator** in the thread's header menu, or press **⌥⌘A**.\nThe panel takes a snapshot of the booted simulator and turns on the picker.\nPoint at an element: a blue box and a label show its type, text, `testID`, and\nsize. **↑** selects its parent, **↓** goes back. Click the element and write the\nnote; **Enter** adds it. A numbered pin marks the element, and a pill such as\n`1 · Buy Pro` appears in the composer. Press **Annotate** again for the next\nnote, then send your message. Click a pin to edit or delete its note.\n\n## What your agent sees\n\nEach pill gives the agent your note, the device and app, and the element's\ntype, label, identifier (the React Native `testID`), value, frame, and\nancestors. It also gets the screenshot with the element outlined and pinned.\n\nNeeds a Mac with Xcode's iOS Simulator and\n[idb](https://fbidb.io) (`brew install facebook/fb/idb-companion` and\n`pipx install fb-idb`). Works with any app on the simulator: Expo Go, an\nExpo development build, React Native, or native.\n",
+      "overview": "## What you get\n\nA **Simulator (serve-sim)** button in every thread header opens a side-panel tab with a\nlive, interactive iOS Simulator. Click to tap, drag to swipe, type to send\nkeys, and use serve-sim's own toolbar for home, screenshots, recording,\nrotation, the device grid, logs and Safari Web Inspector.\n\nPick a device (booted ones are listed first) and press **Start simulator**.\nThe plugin runs [serve-sim](https://github.com/EvanBacon/serve-sim) in the\nbackground and keeps it running while you switch threads; **Stop** in the\npanel toolbar ends it.\n\n## Annotate\n\nPress **Annotate** in serve-sim's toolbar under the device or **⌥⌘A**: the\nlive screen freezes in place and you click the element you mean. A blue box shows\nits type, text, and `testID`; **↑** selects its parent. Write a note, press\n**Enter**, and a pill such as `1 · Buy Pro` lands in the composer. Your agent\ngets the note, the element's `testID` (React Native / Expo), frame, and a\nscreenshot with the element outlined. Needs [idb](https://fbidb.io).\n\n## For agents\n\n`bb serve-sim start|stop|status|devices|logs` controls the preview from a\nshell, and the bundled skill shows agents how to drive the same device with\n`npx serve-sim tap|type|button|gesture` while you watch.\n\n## Requirements\n\nAn Apple Silicon Mac with Xcode, an iOS Simulator runtime and Node.js 20+.\nThe BB server must run on that Mac: the panel embeds serve-sim's preview at\n`http://localhost:<port>`, so it works in BB Desktop, not from a remote web\nclient. No account or external service is needed; the first start downloads\nserve-sim through npx.\n",
       "source": {
         "git": {
           "url": "https://github.com/Navipro70/bb-plugins.git",
           "ref": "main",
-          "subdir": "sim-annotate"
+          "subdir": "serve-sim"
+        }
+      }
+    },
+    {
+      "id": "project-rail",
+      "displayName": "Project Rail",
+      "description": "Project icons in the sidebar rail. Click one to focus the thread list on that project.",
+      "icon": "FolderKanban",
+      "tags": [
+        "projects",
+        "sidebar",
+        "navigation"
+      ],
+      "author": {
+        "name": "Navipro70",
+        "github": "Navipro70",
+        "url": "https://github.com/Navipro70"
+      },
+      "category": "navigation",
+      "screenshots": [],
+      "overview": "Keep each project one click away in the sidebar's left rail.\n\n## What you get\n\n- An icon per project under Home in the rail: your own PNG, an emoji, or a\n  colored monogram.\n- Click a project to focus the thread list on it; click again to show all.\n- Cmd/Ctrl-click a project to start a new thread there; New thread in the\n  header files new threads in the focused project.\n- A dot on each icon when a thread in that project needs input, failed, is\n  unread, or is working.\n- Drag icons to reorder projects. Right-click an icon to move it, hide it\n  from the rail, or give the project a home page: a plugin panel that opens\n  when you click the icon.\n- Home shows threads grouped by project, or one list with each thread's\n  project icon.\n\n## How it works\n\nFocusing drives bb's built-in Thread list through its preferences: organize by\nproject and hide other projects into More. Showing all restores your previous\nlayout. Icons live in this plugin's storage; nothing leaves the machine.\n",
+      "source": {
+        "git": {
+          "url": "https://github.com/Navipro70/bb-plugins.git",
+          "ref": "main",
+          "subdir": "project-rail"
+        }
+      }
+    },
+    {
+      "id": "project-accounts",
+      "displayName": "Project Accounts",
+      "description": "Give projects their own Claude login off the Account Pooler, and see which account serves each thread with its usage limits.",
+      "icon": "UserCog",
+      "tags": [
+        "account-pooler",
+        "claude",
+        "codex",
+        "usage"
+      ],
+      "author": {
+        "name": "Navipro70",
+        "github": "Navipro70",
+        "url": "https://github.com/Navipro70"
+      },
+      "category": "token-usage-and-limits",
+      "screenshots": [],
+      "overview": "Give some projects their own Claude or Codex login while the Account Pooler\nkeeps serving the rest.\n\n## What you get\n\n- Every thread of a listed project bypasses the Account Pooler automatically:\n  new threads, resumed ones, and threads that already existed.\n- Combine it with project environment variables (for example\n  `CLAUDE_CONFIG_DIR`) to point those threads at a separate login.\n- A chip in every Claude Code and Codex thread header and in the new-thread\n  composer: which account serves the project (its own login or the Account\n  Pooler) with a dot and the fullest window's percentage. Click it for the\n  5-hour, weekly and per-model windows with reset times.\n- Project logins appear in the Provider usage panel under \"Project logins\".\n",
+      "source": {
+        "git": {
+          "url": "https://github.com/Navipro70/bb-plugins.git",
+          "ref": "main",
+          "subdir": "project-accounts"
         }
       }
     }

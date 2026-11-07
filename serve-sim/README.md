@@ -53,7 +53,8 @@ simulator, even while serve-sim is stopped.
 ## Install
 
 ```sh
-bb plugin install git:https://github.com/Navipro70/bb-plugin-serve-sim.git
+bb marketplace add git:https://github.com/Navipro70/bb-plugins.git@main
+bb plugin install serve-sim@navipro-plugins
 ```
 
 From a checkout:
