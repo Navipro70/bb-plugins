@@ -1,0 +1,56 @@
+{
+  "$schema": "https://getbb.app/schemas/marketplace-v2.schema.json",
+  "schemaVersion": 2,
+  "name": "navipro-plugins",
+  "displayName": "Navipro Plugins",
+  "description": "A family of bb plugins by Navipro70.",
+  "categories": [
+    {
+      "id": "thread-content",
+      "displayName": "Thread Content",
+      "description": "Change what people see or do inside an open thread."
+    }
+  ],
+  "collections": [
+    {
+      "id": "navipro-plugins",
+      "displayName": "Navipro Plugins",
+      "pluginIds": [
+        "sim-annotate"
+      ]
+    }
+  ],
+  "plugins": [
+    {
+      "id": "sim-annotate",
+      "displayName": "Annotate Simulator",
+      "description": "Notes on elements of the iOS Simulator's screen: click an element of your Expo or React Native app, write a note, and send it to your agent as a pill with its testID and a screenshot.",
+      "icon": {
+        "url": "./sim-annotate/assets/icon.svg"
+      },
+      "tags": [
+        "ios",
+        "simulator",
+        "expo",
+        "react-native",
+        "annotations",
+        "screenshots"
+      ],
+      "author": {
+        "name": "Navipro70",
+        "github": "Navipro70",
+        "url": "https://github.com/Navipro70"
+      },
+      "category": "thread-content",
+      "screenshots": [],
+      "overview": "Point at the part of your app you mean. Click an element of the iOS\nSimulator's screen, write a note, and your agent gets the note with the\nelement's `testID` and a screenshot.\n\n## Notes on the simulator\n\nOpen **Annotate Simulator** in the thread's header menu, or press **⌥⌘A**.\nThe panel takes a snapshot of the booted simulator and turns on the picker.\nPoint at an element: a blue box and a label show its type, text, `testID`, and\nsize. **↑** selects its parent, **↓** goes back. Click the element and write the\nnote; **Enter** adds it. A numbered pin marks the element, and a pill such as\n`1 · Buy Pro` appears in the composer. Press **Annotate** again for the next\nnote, then send your message. Click a pin to edit or delete its note.\n\n## What your agent sees\n\nEach pill gives the agent your note, the device and app, and the element's\ntype, label, identifier (the React Native `testID`), value, frame, and\nancestors. It also gets the screenshot with the element outlined and pinned.\n\nNeeds a Mac with Xcode's iOS Simulator and\n[idb](https://fbidb.io) (`brew install facebook/fb/idb-companion` and\n`pipx install fb-idb`). Works with any app on the simulator: Expo Go, an\nExpo development build, React Native, or native.\n",
+      "source": {
+        "git": {
+          "url": "https://github.com/Navipro70/bb-plugins.git",
+          "ref": "main",
+          "subdir": "sim-annotate"
+        }
+      }
+    }
+  ]
+}
