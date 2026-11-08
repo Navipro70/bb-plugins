@@ -11,11 +11,15 @@ import {
   experimental_usePluginId,
   Markdown,
   useBbNavigate,
+  useComposer,
   useRpc,
   type ExperimentalFilePreviewFile,
+  type ExperimentalLiveFileTarget,
   type ExperimentalThreadActionTabProps,
+  type PluginNewThreadPanelProps,
 } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./server";
+import { newThreadRoot, rootKey, type Root, type SelectedEnvironment } from "@/lib/roots";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { SETI_FONT_BASE64 } from "@/lib/seti-font";
@@ -123,7 +127,14 @@ function loadSaved(key: string): SavedState {
 /** One folder's loaded children, keyed by workspace-relative folder ("" = root). */
 type ChildrenState = Map<string, DirEntry[]>;
 
-function useWorkspaceTree(environmentId: string, storageKey: string) {
+interface WorkspaceInfo {
+  name: string;
+  branch: string | null;
+  hostId: string;
+  path: string;
+}
+
+function useWorkspaceTree(root: Root, storageKey: string) {
   const rpc = useRpc<typeof rpcContract>();
   const saved = useRef(loadSaved(storageKey)).current;
   const [children, setChildren] = useState<ChildrenState>(new Map());
@@ -133,9 +144,7 @@ function useWorkspaceTree(environmentId: string, storageKey: string) {
   const [loading, setLoading] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [git, setGit] = useState<GitDecorations>(() => buildDecorations([]));
-  const [workspace, setWorkspace] = useState<{ name: string; branch: string | null } | null>(
-    null,
-  );
+  const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
   const childrenRef = useRef(children);
   childrenRef.current = children;
   const expandedRef = useRef(expanded);
@@ -154,7 +163,7 @@ function useWorkspaceTree(environmentId: string, storageKey: string) {
     async (dir: string) => {
       setLoading((current) => new Set(current).add(dir));
       try {
-        const result = await rpc.call("list_dir", { environmentId, dir });
+        const result = await rpc.call("list_dir", { root, dir });
         setChildren((current) => new Map(current).set(dir, result.entries));
         setError(null);
       } catch (cause) {
@@ -175,7 +184,7 @@ function useWorkspaceTree(environmentId: string, storageKey: string) {
         });
       }
     },
-    [rpc, environmentId],
+    [rpc, root],
   );
 
   /** Reloads the root and every expanded folder whose parents are open. */
@@ -186,14 +195,14 @@ function useWorkspaceTree(environmentId: string, storageKey: string) {
   }, [loadDir]);
 
   useEffect(() => {
-    rpc.call("workspace", { environmentId }).then(
-      (result) => setWorkspace({ name: result.name, branch: result.branch }),
+    rpc.call("workspace", { root }).then(
+      (result) => setWorkspace(result),
       (cause: unknown) => setError(errorText(cause)),
     );
     void refreshAll();
-    // Only on mount or environment change; later refreshes are explicit.
+    // Only on mount: Explorer remounts when the root changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [environmentId]);
+  }, []);
 
   // Git status poll; a change in the set of changed files also reloads the
   // open folders so new and deleted files appear.
@@ -204,7 +213,7 @@ function useWorkspaceTree(environmentId: string, storageKey: string) {
     const poll = async () => {
       if (document.visibilityState === "visible") {
         try {
-          const result = await rpc.call("git_status", { environmentId });
+          const result = await rpc.call("git_status", { root });
           if (cancelled) return;
           const files: GitFileState[] = result.files;
           const signature = files.map((file) => `${file.state}:${file.path}`).join("\n");
@@ -228,7 +237,7 @@ function useWorkspaceTree(environmentId: string, storageKey: string) {
       if (timer !== undefined) clearTimeout(timer);
       window.removeEventListener("focus", onFocus);
     };
-  }, [rpc, environmentId, refreshAll]);
+  }, [rpc, root, refreshAll]);
 
   const toggle = useCallback(
     (path: string, open?: boolean) => {
@@ -391,14 +400,56 @@ function FilesTab({ threadId, environment }: ExperimentalThreadActionTabProps) {
       </div>
     );
   }
-  return <Explorer threadId={threadId} environmentId={environment.id} />;
+  const root: Root = { kind: "environment", environmentId: environment.id };
+  return <Explorer key={rootKey(root)} root={root} threadId={threadId} note={null} />;
 }
 
-function Explorer({ threadId, environmentId }: { threadId: string; environmentId: string }) {
+function NewThreadFilesTab({ projectId }: PluginNewThreadPanelProps) {
+  const composer = useComposer();
+  const selectedProject = composer.selection?.projectId ?? projectId;
+  const resolved = newThreadRoot(
+    selectedProject ?? null,
+    composer.selection?.environment as SelectedEnvironment | undefined,
+  );
+  if (resolved === null) {
+    return (
+      <div className="p-4 text-sm text-muted-foreground">
+        Pick a project to see its files.
+      </div>
+    );
+  }
+  return (
+    <Explorer
+      key={rootKey(resolved.root)}
+      root={resolved.root}
+      threadId={null}
+      note={resolved.note}
+    />
+  );
+}
+
+function Explorer({
+  root,
+  threadId,
+  note,
+}: {
+  root: Root;
+  threadId: string | null;
+  note: string | null;
+}) {
   const pluginId = experimental_usePluginId();
   const navigate = useBbNavigate();
   const mode = useMode();
-  const tree = useWorkspaceTree(environmentId, `${pluginId}:tree:${environmentId}`);
+  const key = rootKey(root);
+  const tree = useWorkspaceTree(root, `${pluginId}:tree:${key}`);
+  const workspace = tree.workspace;
+  const fileTarget = (path: string): ExperimentalLiveFileTarget | null => {
+    if (root.kind === "environment") {
+      return { kind: "workspace", environmentId: root.environmentId, path };
+    }
+    if (workspace === null) return null;
+    return { kind: "host", hostId: workspace.hostId, path: `${workspace.path}/${path}` };
+  };
   const { ref: frameRef, width } = useElementWidth<HTMLDivElement>();
   const [focused, setFocused] = useState<string | null>(null);
   const rows = visibleRows(tree.children, tree.expanded);
@@ -409,10 +460,8 @@ function Explorer({ threadId, environmentId }: { threadId: string; environmentId
       : null;
 
   const openInTab = (path: string) => {
-    navigate.experimental_openFilePreview({
-      target: { kind: "workspace", environmentId, path },
-      location: null,
-    });
+    const target = fileTarget(path);
+    if (target !== null) navigate.experimental_openFilePreview({ target, location: null });
   };
 
   const activate = (row: VisibleRow) => {
@@ -437,7 +486,7 @@ function Explorer({ threadId, environmentId }: { threadId: string; environmentId
       if (next === undefined) return;
       setFocused(next.path);
       document
-        .querySelector(`[data-fe-tree="${environmentId}"] [data-path="${CSS.escape(next.path)}"]`)
+        .querySelector(`[data-fe-tree="${CSS.escape(key)}"] [data-path="${CSS.escape(next.path)}"]`)
         ?.scrollIntoView({ block: "nearest" });
     };
     switch (event.key) {
@@ -487,10 +536,12 @@ function Explorer({ threadId, environmentId }: { threadId: string; environmentId
     window.addEventListener("pointerup", up);
   };
 
+  const previewTarget = previewPath === null ? null : fileTarget(previewPath);
+
   const treeColumn = (
     <div
       className="flex min-h-0 min-w-0 flex-col"
-      style={previewPath === null ? { flex: 1 } : { width: tree.treeWidth, flexShrink: 0 }}
+      style={previewTarget === null ? { flex: 1 } : { width: tree.treeWidth, flexShrink: 0 }}
     >
       <div className="flex h-8 shrink-0 items-center gap-1 pl-3 pr-1.5">
         <span
@@ -498,6 +549,11 @@ function Explorer({ threadId, environmentId }: { threadId: string; environmentId
           title={tree.workspace?.branch ? `Branch ${tree.workspace.branch}` : undefined}
         >
           {tree.workspace?.name ?? "Files"}
+          {tree.workspace?.branch ? (
+            <span className="ml-1.5 font-normal normal-case tracking-normal">
+              {tree.workspace.branch}
+            </span>
+          ) : null}
         </span>
         {previewPath === null ? null : (
           <>
@@ -512,10 +568,13 @@ function Explorer({ threadId, environmentId }: { threadId: string; environmentId
         <HeaderButton icon="ArrowReloadHorizontal" label="Refresh" onClick={() => void tree.refreshAll()} />
         <HeaderButton icon="FolderMinus" label="Collapse folders" onClick={tree.collapseAll} />
       </div>
+      {note === null ? null : (
+        <p className="shrink-0 px-3 pb-1 text-[11px] text-muted-foreground">{note}</p>
+      )}
       <div
         role="tree"
         tabIndex={0}
-        data-fe-tree={environmentId}
+        data-fe-tree={key}
         aria-label="Workspace files"
         onKeyDown={onKeyDown}
         className="min-h-0 flex-1 overflow-auto pb-4 outline-none"
@@ -552,7 +611,7 @@ function Explorer({ threadId, environmentId }: { threadId: string; environmentId
   return (
     <div ref={frameRef} className="flex h-full min-h-0 w-full">
       {treeColumn}
-      {previewPath === null ? null : (
+      {previewTarget === null ? null : (
         <>
           <div
             role="separator"
@@ -564,9 +623,14 @@ function Explorer({ threadId, environmentId }: { threadId: string; environmentId
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <FilePreview
               key={previewPath}
-              target={{ kind: "workspace", environmentId, path: previewPath }}
+              target={previewTarget}
               renderPreview={(file) => (
-                <PreviewBody threadId={threadId} environmentId={environmentId} path={previewPath} file={file} />
+                <PreviewBody
+                  threadId={threadId}
+                  target={previewTarget}
+                  path={previewPath ?? ""}
+                  file={file}
+                />
               )}
             />
           </div>
@@ -579,12 +643,12 @@ function Explorer({ threadId, environmentId }: { threadId: string; environmentId
 /** The Preview-mode body bb asks plugins to draw for Markdown, HTML and CSV. */
 function PreviewBody({
   threadId,
-  environmentId,
+  target,
   path,
   file,
 }: {
-  threadId: string;
-  environmentId: string;
+  threadId: string | null;
+  target: ExperimentalLiveFileTarget;
   path: string;
   file: ExperimentalFilePreviewFile;
 }) {
@@ -594,11 +658,11 @@ function PreviewBody({
       <div className="h-full overflow-auto px-5 py-4">
         <Markdown
           content={file.content}
-          experimental_document={{
-            threadId,
-            rootPath: parentDir(path),
-            target: { kind: "workspace", environmentId, path },
-          }}
+          experimental_document={
+            threadId !== null && target.kind === "workspace"
+              ? { threadId, rootPath: parentDir(path), target }
+              : undefined
+          }
         />
       </div>
     );
@@ -636,6 +700,16 @@ export default definePluginApp((app) => {
         document.fonts.delete(face);
       };
     },
+  });
+
+  // The same tree on the New thread screen, for the project folder or the
+  // environment its composer has selected.
+  app.slots.experimental_newThreadPanelAction({
+    id: "files",
+    title: "Files",
+    icon: "FolderOpen",
+    layout: "flush",
+    component: NewThreadFilesTab,
   });
 
   app.slots.experimental_tab({

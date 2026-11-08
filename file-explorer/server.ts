@@ -1,9 +1,11 @@
-// File Explorer backend: lists one folder of a thread's workspace at a time
-// and reads its git status, for the Files tab in app.tsx.
+// File Explorer backend: lists one folder of a workspace at a time and reads
+// its git status, for the Files tabs in app.tsx. A workspace ("root") is a
+// thread's environment, or, before a thread exists, the project's own folder
+// on the machine the New thread screen has selected.
 //
 // The workspace is read with Node's fs and git on this machine, so it covers
-// environments on the bb server's own machine (project checkouts and local
-// worktrees). Environments on other machines get a clear error.
+// environments and project folders on the bb server's own machine (project
+// checkouts and local worktrees). Other machines get a clear error.
 import { spawn } from "node:child_process";
 import { readdir, realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative } from "node:path";
@@ -32,18 +34,31 @@ const gitStateSchema = z.enum([
   "conflict",
 ]);
 
+const rootSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("environment"), environmentId: z.string().min(1) }),
+  z.object({
+    kind: z.literal("project"),
+    projectId: z.string().min(1),
+    /** The machine to read the project's folder on; the server's own by default. */
+    hostId: z.string().min(1).nullable(),
+  }),
+]);
+type Root = z.infer<typeof rootSchema>;
+
 export const rpcContract = defineRpcContract({
   workspace: {
-    input: z.object({ environmentId: z.string().min(1) }),
+    input: z.object({ root: rootSchema }),
     output: z.object({
       name: z.string(),
       isGitRepo: z.boolean(),
       branch: z.string().nullable(),
+      hostId: z.string(),
+      path: z.string(),
     }),
   },
   list_dir: {
     input: z.object({
-      environmentId: z.string().min(1),
+      root: rootSchema,
       dir: z.string().max(4096),
     }),
     output: z.object({
@@ -52,7 +67,7 @@ export const rpcContract = defineRpcContract({
     }),
   },
   git_status: {
-    input: z.object({ environmentId: z.string().min(1) }),
+    input: z.object({ root: rootSchema }),
     output: z.object({
       available: z.boolean(),
       files: z.array(z.object({ path: z.string(), state: gitStateSchema })),
@@ -63,7 +78,9 @@ export const rpcContract = defineRpcContract({
 
 interface Workspace {
   root: string;
+  hostId: string;
   isGitRepo: boolean;
+  /** The branch bb recorded for an environment; null reads it from git. */
   branch: string | null;
 }
 
@@ -119,26 +136,73 @@ function runGit(
 export default async function plugin(bb: BbPluginApi) {
   const workspaces = new Map<string, { value: Workspace; expiresAt: number }>();
 
-  async function resolveWorkspace(environmentId: string): Promise<Workspace> {
-    const cached = workspaces.get(environmentId);
-    if (cached !== undefined && cached.expiresAt > Date.now()) return cached.value;
-    const environment = await bb.sdk.environments.get({ environmentId });
-    const { primaryHostId } = await bb.sdk.system.config();
-    if (environment.hostId !== primaryHostId) {
+  async function primaryHostId(): Promise<string> {
+    const { primaryHostId: hostId } = await bb.sdk.system.config();
+    if (hostId === null) throw new Error("bb has no local machine record yet.");
+    return hostId;
+  }
+
+  function requireLocal(hostId: string, localHostId: string) {
+    if (hostId !== localHostId) {
       throw new Error(
-        "File Explorer reads workspaces on this computer only; this thread's environment is on another machine.",
+        "File Explorer reads folders on this computer only; this one is on another machine.",
       );
     }
+  }
+
+  async function resolveEnvironment(environmentId: string): Promise<Workspace> {
+    const environment = await bb.sdk.environments.get({ environmentId });
+    const localHostId = await primaryHostId();
+    requireLocal(environment.hostId, localHostId);
     if (environment.path === null || environment.path === undefined) {
       throw new Error("This environment has no workspace folder yet.");
     }
-    const value: Workspace = {
+    return {
       root: await realpath(environment.path),
+      hostId: environment.hostId,
       isGitRepo: environment.isGitRepo === true,
       branch: environment.branchName ?? null,
     };
-    workspaces.set(environmentId, { value, expiresAt: Date.now() + 30_000 });
+  }
+
+  async function resolveProject(projectId: string, hostId: string | null): Promise<Workspace> {
+    const project = await bb.sdk.projects.get({ projectId });
+    const localHostId = await primaryHostId();
+    const wanted = hostId ?? localHostId;
+    requireLocal(wanted, localHostId);
+    const sources = project.sources.filter(
+      (source) => source.type === "local_path" && source.hostId === wanted,
+    );
+    const source = sources.find((candidate) => candidate.isDefault) ?? sources[0];
+    if (source === undefined || source.type !== "local_path") {
+      throw new Error(`${project.name} has no folder on this computer.`);
+    }
+    const root = await realpath(source.path);
+    const isGitRepo = await runGit(root, ["rev-parse", "--is-inside-work-tree"]).then(
+      (output) => output.trim() === "true",
+      () => false,
+    );
+    return { root, hostId: wanted, isGitRepo, branch: null };
+  }
+
+  async function resolveWorkspace(root: Root): Promise<Workspace> {
+    const key = JSON.stringify(root);
+    const cached = workspaces.get(key);
+    if (cached !== undefined && cached.expiresAt > Date.now()) return cached.value;
+    const value =
+      root.kind === "environment"
+        ? await resolveEnvironment(root.environmentId)
+        : await resolveProject(root.projectId, root.hostId);
+    workspaces.set(key, { value, expiresAt: Date.now() + 30_000 });
     return value;
+  }
+
+  async function currentBranch(workspace: Workspace): Promise<string | null> {
+    if (workspace.branch !== null || !workspace.isGitRepo) return workspace.branch;
+    return runGit(workspace.root, ["branch", "--show-current"]).then(
+      (output) => output.trim() || null,
+      () => null,
+    );
   }
 
   /** The absolute folder for a relative one, confined to the workspace. */
@@ -175,8 +239,8 @@ export default async function plugin(bb: BbPluginApi) {
     return ignored;
   }
 
-  async function listDir(environmentId: string, dir: string) {
-    const workspace = await resolveWorkspace(environmentId);
+  async function listDir(root: Root, dir: string) {
+    const workspace = await resolveWorkspace(root);
     const absolute = await resolveDir(workspace.root, dir);
     const dirents = await readdir(absolute, { withFileTypes: true });
     const truncated = dirents.length > MAX_ENTRIES;
@@ -205,8 +269,8 @@ export default async function plugin(bb: BbPluginApi) {
     return { entries, truncated };
   }
 
-  async function gitStatus(environmentId: string) {
-    const workspace = await resolveWorkspace(environmentId);
+  async function gitStatus(root: Root) {
+    const workspace = await resolveWorkspace(root);
     if (!workspace.isGitRepo) return { available: false, files: [], truncated: false };
     const output = await runGit(workspace.root, [
       "status",
@@ -224,15 +288,17 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   bb.rpc.register(rpcContract, {
-    workspace: async ({ environmentId }) => {
-      const workspace = await resolveWorkspace(environmentId);
+    workspace: async ({ root }) => {
+      const workspace = await resolveWorkspace(root);
       return {
         name: workspace.root.split("/").pop() ?? workspace.root,
         isGitRepo: workspace.isGitRepo,
-        branch: workspace.branch,
+        branch: await currentBranch(workspace),
+        hostId: workspace.hostId,
+        path: workspace.root,
       };
     },
-    list_dir: ({ environmentId, dir }) => listDir(environmentId, dir),
-    git_status: ({ environmentId }) => gitStatus(environmentId),
+    list_dir: ({ root, dir }) => listDir(root, dir),
+    git_status: ({ root }) => gitStatus(root),
   });
 }
