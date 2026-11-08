@@ -10,6 +10,7 @@ bb marketplace add git:https://github.com/Navipro70/bb-plugins.git@main
 bb plugin install serve-sim@navipro-plugins
 bb plugin install project-rail@navipro-plugins
 bb plugin install project-accounts@navipro-plugins
+bb plugin install file-explorer@navipro-plugins
 ```
 
 `bb marketplace refresh navipro-plugins` re-reads the catalog; it never
@@ -38,6 +39,12 @@ right-click to hide an icon or give the project a home page.
 Give some projects their own Claude or Codex login while the Account Pooler
 serves the rest, and see which account serves each thread, with its usage
 windows, in the thread header. Needs the Account Pooler.
+
+### [File Explorer](./file-explorer)
+
+A Cursor / VS Code style tree of the thread's workspace in the side panel:
+Seti file icons, git colors and letters, ignored files dimmed, and a file
+preview beside the tree. Open it from **Files** in the panel's Actions list.
 
 ## Layout
 
