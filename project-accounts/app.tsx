@@ -3,7 +3,8 @@
 // A chip in every Claude Code / Codex thread header and in the new-thread
 // composer: which account serves this project (its own login or the Account
 // Pooler) and how much of its 5-hour and weekly windows is used. Click it for
-// every window with reset times and a refresh.
+// every window with reset times, a refresh, and the Account Pooler's Claude
+// accounts with a switch each: which of them this project may use.
 import { useCallback, useEffect, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import {
@@ -14,8 +15,8 @@ import {
   useRpc,
   useSdk,
 } from "@get-bb/plugin-sdk/app";
-import type { AccountView, UsageWindow } from "./accounts";
-import type { rpcContract } from "./server";
+import type { UsageWindow } from "./accounts";
+import type { ProjectAccount as AccountView, ProjectPoolAccount, rpcContract } from "./server";
 import { usePortalScopeProps } from "@/lib/portal-scope";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +44,24 @@ function useAccountView(projectId: string | null, providerId: string | null) {
     return () => window.clearInterval(timer);
   }, [load]);
   useRealtime("accounts-changed", () => load(false));
-  return { view, loading, refresh: () => load(true) };
+  const [switching, setSwitching] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const setAccount = useCallback(
+    (accountId: string, allowed: boolean) => {
+      if (projectId === null) return;
+      setSwitching(accountId);
+      setError(null);
+      rpc
+        .call("set_account", { projectId, accountId, allowed })
+        .then(
+          () => load(false),
+          (cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)),
+        )
+        .finally(() => setSwitching(null));
+    },
+    [rpc, projectId, load],
+  );
+  return { view, loading, refresh: () => load(true), switching, error, setAccount };
 }
 
 /** The window that binds first: the fullest of the 5-hour and weekly ones. */
@@ -111,15 +129,109 @@ function WindowRow({ window: w, now }: { window: UsageWindow; now: number }) {
   );
 }
 
+function Switch({
+  checked,
+  disabled,
+  label,
+  title,
+  onChange,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  label: string;
+  title?: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      title={title}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative inline-flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40",
+        checked ? "bg-primary" : "bg-muted-foreground/30",
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "size-3 rounded-full bg-background shadow transition-transform",
+          checked ? "translate-x-3.5" : "translate-x-0.5",
+        )}
+      />
+    </button>
+  );
+}
+
+function PoolAccounts({
+  accounts,
+  pooled,
+  switching,
+  error,
+  onChange,
+}: {
+  accounts: ProjectPoolAccount[];
+  pooled: boolean;
+  switching: string | null;
+  error: string | null;
+  onChange: (accountId: string, allowed: boolean) => void;
+}) {
+  if (accounts.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2 border-t pt-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-xs font-medium text-foreground">Accounts for this project</span>
+        <span className="text-[11px] text-muted-foreground">{pooled ? "Account Pooler" : "Own login only"}</span>
+      </div>
+      {accounts.map((account) => (
+        <div key={account.id} className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-3" title={account.hint ?? undefined}>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className={cn("truncate text-xs", account.allowed ? "text-foreground" : "text-muted-foreground")}>
+              {account.label}
+              {account.local ? <span className="ml-1.5 text-[11px] text-muted-foreground">project login</span> : null}
+            </span>
+            {account.email && account.email !== account.label ? (
+              <span className="truncate text-[11px] text-muted-foreground">{account.email}</span>
+            ) : null}
+          </div>
+          <Switch
+            checked={account.allowed}
+            disabled={switching !== null || !account.toggleable}
+            label={`Use ${account.email ?? account.label} in this project`}
+            title={account.hint ?? undefined}
+            onChange={(allowed) => onChange(account.id, allowed)}
+          />
+        </div>
+        {!account.toggleable && account.hint && account.enabledInPool ? (
+          <span className="text-[11px] text-muted-foreground">{account.hint}</span>
+        ) : null}
+        </div>
+      ))}
+      {error ? <p className="text-[11px] text-amber-600 dark:text-amber-400">{error}</p> : null}
+    </div>
+  );
+}
+
 function AccountChip({
   view,
   loading,
   onRefresh,
+  switching,
+  error,
+  onSetAccount,
   compact = false,
 }: {
   view: AccountView;
   loading: boolean;
   onRefresh: () => void;
+  switching: string | null;
+  error: string | null;
+  onSetAccount: (accountId: string, allowed: boolean) => void;
   compact?: boolean;
 }) {
   const portalProps = usePortalScopeProps();
@@ -204,6 +316,13 @@ function AccountChip({
           {view.observedAt !== null ? (
             <span className="text-[11px] text-muted-foreground">Measured {relative(view.observedAt, now)}</span>
           ) : null}
+          <PoolAccounts
+            accounts={view.accounts}
+            pooled={view.pooled}
+            switching={switching}
+            error={error}
+            onChange={onSetAccount}
+          />
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
@@ -233,9 +352,18 @@ function ThreadAccount({ threadId, projectId }: { threadId: string; projectId: s
     };
   }, [sdk, threadId]);
   const supported = providerId !== null && ACCOUNT_PROVIDERS.has(providerId);
-  const { view, loading, refresh } = useAccountView(supported ? projectId : null, providerId);
+  const { view, loading, refresh, switching, error, setAccount } = useAccountView(supported ? projectId : null, providerId);
   if (!supported || view === null) return null;
-  return <AccountChip view={view} loading={loading} onRefresh={refresh} />;
+  return (
+    <AccountChip
+      view={view}
+      loading={loading}
+      onRefresh={refresh}
+      switching={switching}
+      error={error}
+      onSetAccount={setAccount}
+    />
+  );
 }
 
 function NewThreadAccount() {
@@ -243,9 +371,19 @@ function NewThreadAccount() {
   const projectId = composer.scope.kind === "new-thread" ? composer.scope.projectId : null;
   const providerId = composer.selection?.providerId ?? null;
   const supported = providerId === null || ACCOUNT_PROVIDERS.has(providerId);
-  const { view, loading, refresh } = useAccountView(supported ? projectId : null, providerId);
+  const { view, loading, refresh, switching, error, setAccount } = useAccountView(supported ? projectId : null, providerId);
   if (!supported || view === null) return null;
-  return <AccountChip view={view} loading={loading} onRefresh={refresh} compact={composer.layout === "compact"} />;
+  return (
+    <AccountChip
+      view={view}
+      loading={loading}
+      onRefresh={refresh}
+      switching={switching}
+      error={error}
+      onSetAccount={setAccount}
+      compact={composer.layout === "compact"}
+    />
+  );
 }
 
 export default definePluginApp((app) => {

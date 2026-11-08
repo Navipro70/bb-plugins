@@ -10,5 +10,7 @@ keeps serving the rest.
 - A chip in every Claude Code and Codex thread header and in the new-thread
   composer: which account serves the project (its own login or the Account
   Pooler) with a dot and the fullest window's percentage. Click it for the
-  5-hour, weekly and per-model windows with reset times.
+  5-hour, weekly and per-model windows with reset times, and for the
+  Account Pooler's Claude accounts with a switch each: any set of them per
+  project, without moving its sessions.
 - Project logins appear in the Provider usage panel under "Project logins".
