@@ -28,7 +28,8 @@
       "pluginIds": [
         "serve-sim",
         "project-rail",
-        "project-accounts"
+        "project-accounts",
+        "file-explorer"
       ]
     }
   ],
@@ -111,6 +112,33 @@
           "url": "https://github.com/Navipro70/bb-plugins.git",
           "ref": "main",
           "subdir": "project-accounts"
+        }
+      }
+    },
+    {
+      "id": "file-explorer",
+      "displayName": "File Explorer",
+      "description": "Browse a thread's workspace as a Cursor-style file tree with Seti icons and git colors, right in the side panel.",
+      "icon": "FolderOpen",
+      "tags": [
+        "files",
+        "explorer",
+        "file-tree",
+        "git"
+      ],
+      "author": {
+        "name": "Navipro70",
+        "github": "Navipro70",
+        "url": "https://github.com/Navipro70"
+      },
+      "category": "thread-content",
+      "screenshots": [],
+      "overview": "Browse the thread's workspace as a Cursor / VS Code style file tree in the\nside panel.\n\n## What you get\n\n- **Files** in the side panel's Actions list opens the tree: folders first,\n  ignored entries dimmed, Seti file icons like Cursor and VS Code.\n- Git colors and letters for modified, added, untracked and conflicted files,\n  with a dot on folders that contain changes, kept up to date while you work.\n- Click a file to preview it next to the tree with bb's own preview; double-\n  click, or click in a narrow panel, to open it as a regular file tab.\n- Arrow keys and Enter move through the tree; expanded folders are\n  remembered per environment.\n\nReads workspaces on the bb server's own machine.\n",
+      "source": {
+        "git": {
+          "url": "https://github.com/Navipro70/bb-plugins.git",
+          "ref": "main",
+          "subdir": "file-explorer"
         }
       }
     }
