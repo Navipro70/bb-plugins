@@ -5,7 +5,13 @@ panel.
 
 - **Files** in the side panel's Actions list (the `+` tab) opens the tree of
   the thread's workspace: folders first, natural name order, `.gitignore`d
-  entries dimmed, and `.git` and `.DS_Store` hidden, as VS Code does.
+  entries dimmed, and `.git` and `.DS_Store` hidden, as VS Code does. The
+  header shows the folder and its current branch.
+- **Files** is on the New thread screen too, before the thread exists: it
+  follows the composer's project and environment. A reused environment shows
+  its folder; a project checkout, a new worktree or another new environment
+  shows the project's folder on the selected machine (a new worktree starts
+  from it, which the tree notes).
 - Seti file icons, the same set Cursor and VS Code ship by default.
 - Git colors and letters: modified (`M`), added (`A`), untracked (`U`),
   deleted, renamed and conflicted files, with a dot on folders that contain
@@ -21,9 +27,11 @@ panel.
 
 ## Limits
 
-The tree reads the workspace with Node's `fs` and `git` on the bb server's
-own machine, so it covers project checkouts and worktrees on this computer.
-A thread whose environment lives on another machine shows an error instead.
+The tree reads folders with Node's `fs` and `git` on the bb server's own
+machine, so it covers project checkouts and worktrees on this computer. A
+thread whose environment lives on another machine shows an error instead, and
+the New thread screen shows nothing while the selected machine is one still
+to be created.
 A folder lists at most 5000 entries.
 
 ## Development

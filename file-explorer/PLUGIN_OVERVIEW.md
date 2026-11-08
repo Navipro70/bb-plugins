@@ -5,6 +5,8 @@ side panel.
 
 - **Files** in the side panel's Actions list opens the tree: folders first,
   ignored entries dimmed, Seti file icons like Cursor and VS Code.
+- Also on the New thread screen, before the thread exists: it shows the
+  folder of the project and environment selected in the composer.
 - Git colors and letters for modified, added, untracked and conflicted files,
   with a dot on folders that contain changes, kept up to date while you work.
 - Click a file to preview it next to the tree with bb's own preview; double-
