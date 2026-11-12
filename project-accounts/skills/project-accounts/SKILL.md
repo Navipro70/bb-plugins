@@ -16,6 +16,21 @@ bb project-accounts add <project-id|name>
 bb project-accounts remove <project-id|name>
 ```
 
+Per account, with the same rules as the switches in the account chip's
+popover:
+
+```sh
+bb project-accounts accounts <project>
+bb project-accounts allow <project> <account-id|email>
+bb project-accounts deny <project> <account-id|email>
+```
+
+Any non-empty set works: all accounts (the pool serves the project), only the
+project's own login (pool bypassed), or any other set (pool bypassed; the
+plugin's proxy sends requests with those accounts' pool logins, in priority
+order). Nothing changes `CLAUDE_CONFIG_DIR`, so switching keeps sessions and
+memory.
+
 Pair it with project-scoped environment variables that select the login:
 
 ```sh

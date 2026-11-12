@@ -16,7 +16,7 @@ import { z } from "zod";
 const USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
 const OAUTH_BETA = "oauth-2025-04-20";
 const KEYCHAIN_SERVICE = "Claude Code-credentials";
-const USER_AGENT = "bb-plugin-project-accounts/0.2";
+const USER_AGENT = "bb-plugin-project-accounts/0.2.1";
 const CACHE_MS = 3 * 60_000;
 const MIN_REFRESH_MS = 30_000;
 
@@ -115,10 +115,16 @@ const profileSchema = z.looseObject({
     .optional(),
 });
 
+/** Claude Code keeps the default login's profile in ~/.claude.json, outside ~/.claude. */
+function profilePath(configDir: string): string {
+  const normalized = configDir.normalize("NFC");
+  return normalized === join(homedir(), ".claude") ? join(homedir(), ".claude.json") : join(normalized, ".claude.json");
+}
+
 async function readProfile(configDir: string) {
   try {
     const parsed = profileSchema.safeParse(
-      JSON.parse(await readFile(join(configDir, ".claude.json"), "utf8")),
+      JSON.parse(await readFile(profilePath(configDir), "utf8")),
     );
     return parsed.success ? (parsed.data.oauthAccount ?? null) : null;
   } catch {
