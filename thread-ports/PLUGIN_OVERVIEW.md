@@ -1,33 +1,39 @@
 ## What you get
 
-A **Ports** segment in the row above a thread's composer, beside the pull
-request and changed-files segments. It names the dev servers the thread's
-worktree is serving, such as `node :5173 · python :8060 · +2`, and appears
-only while something is listening.
+Every dev server a BB thread started, named after that thread, with the
+actions you need one click away.
 
-Click it to see every port with its process and pid:
+- **Ports in the sidebar footer.** One card per thread that is serving
+  something: the thread title (click it, or **Thread →**, to jump there), its
+  project and branch, and a row per port such as `:5173 vite`. Each row has
+  **Open** (in the browser BB prefers), **Copy** (the localhost URL), and
+  **Stop**, which asks once more before it stops the server. A **LAN** chip
+  marks a port reachable from your network and copies its address, for
+  opening the server on a phone.
+- **Above the composer.** A thread that started servers shows them in the
+  row beside the pull request and changed files, `vite :5173 · python
+  http.server :8060`. Click it for the same rows.
+- **In the thread list.** A plug glyph marks threads that are serving.
+- **`bb thread-ports`** lists the same thing in a terminal, and
+  `bb thread-ports stop <port>` stops one, so agents can use it too.
 
-- **Open** shows the server in the browser BB prefers.
-- **Stop** sends SIGTERM to the listening process (or stops the Docker
-  container behind a published port). A second click confirms.
-
-Ports belong to a worktree, so the list also names the other threads working
-in it, each a link to that thread.
+Agent tools such as MCP servers fold behind a toggle, and a server whose
+thread was deleted shows under **Deleted thread**.
 
 ## How it works
 
-Thread Ports does no scanning of its own. The **Worktree Ports** plugin
-already attributes every listening TCP port to the BB environment whose
-worktree holds the process, and Thread Ports asks it for that listing every
-few seconds while the segment is on screen. Stop goes through Worktree Ports
-too, which re-scans and refuses a port that is not listening in that
-worktree.
+Agents start processes with `BB_THREAD_ID` in their environment, and every
+child inherits it. A host worker on each machine lists listening TCP ports
+with `lsof`, reads that variable from each process (`ps -E` on macOS,
+`/proc` on Linux), and also attributes a server started by hand inside a
+BB workspace by its working directory. Nothing else on the machine (AirPlay,
+editors, bb itself) is listed.
+
+Stop re-checks that the same process (pid and start time) still holds the
+port, sends SIGTERM, and offers **Force kill** if it does not exit.
 
 ## Requirements
 
-- The **Worktree Ports** plugin (BB Community). Without it the segment stays
-  hidden.
-- macOS or Linux, as Worktree Ports needs `lsof`.
-- BB 0.50 or newer. The segment uses the experimental
-  `experimental_threadContextSegment` slot, which may change between BB
-  releases.
+- macOS or Linux, with `lsof` and `ps`.
+- BB 0.50 or newer. The panel, the context-row segment and the row glyph use
+  experimental SDK slots that may change between BB releases.
