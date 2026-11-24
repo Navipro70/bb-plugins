@@ -46,6 +46,12 @@ A Cursor / VS Code style tree of the thread's workspace in the side panel:
 Seti file icons, git colors and letters, ignored files dimmed, and a file
 preview beside the tree. Open it from **Files** in the panel's Actions list.
 
+### [Thread Ports](./thread-ports)
+
+The dev servers a thread's worktree is serving, in the row above its composer:
+`node :5173 · python :8060`. Expand it to open a server in the browser or stop
+it, and to jump to the other threads in the worktree. Needs Worktree Ports.
+
 ## Layout
 
 - `marketplace.json` is the v2 marketplace document bb reads.
