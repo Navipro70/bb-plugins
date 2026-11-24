@@ -48,9 +48,10 @@ preview beside the tree. Open it from **Files** in the panel's Actions list.
 
 ### [Thread Ports](./thread-ports)
 
-The dev servers a thread's worktree is serving, in the row above its composer:
-`node :5173 · python :8060`. Expand it to open a server in the browser or stop
-it, and to jump to the other threads in the worktree. Needs Worktree Ports.
+Every dev server a thread started, named after that thread: a **Ports** panel
+in the sidebar footer and a segment above the composer, with Open, Copy, Stop,
+a LAN address for phones, and a jump to the thread. Knows the exact thread
+from the `BB_THREAD_ID` each agent process inherits.
 
 ## Layout
 
